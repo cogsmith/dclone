@@ -1,0 +1,8 @@
+{
+    "dependencies": {
+        "@cogsmith/xt": "^1.0.164",
+        "blessed": "^0.1.81",
+        "blessed-contrib": "^4.10.0",
+        "blessed-xterm": "^1.4.1"
+    }
+}
