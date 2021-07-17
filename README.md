@@ -1,5 +1,5 @@
 # DCLONE
-### Terminal Menu Guided Disk Imaging: lsblk + dd + squashfs + kpartx + ncdu
+### Terminal Menu Guided Disk Imaging Using Open Source Tools
 
 ---
 
