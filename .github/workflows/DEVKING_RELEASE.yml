@@ -1,0 +1,26 @@
+name: DEVKING_RELEASE
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:  
+      NEXTVERSION:
+        required: true
+        default: 'PATCH'
+        description: 'NEXTVERSION'
+jobs:
+  JOB:
+    if: |
+      github.event_name == 'workflow_dispatch'
+      || ( github.event.head_commit.message == 'TAG'
+        || github.event.head_commit.message == 'TAG PATCH'
+        || github.event.head_commit.message == 'TAG MINOR'
+        || github.event.head_commit.message == 'TAG MAJOR'
+        || startsWith(github.event.head_commit.message, 'TAG ')
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - uses: cogsmith/devking-release@main

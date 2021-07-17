@@ -1,0 +1,19 @@
+name: DEVKING_CLEANUP
+on:
+  workflow_dispatch:
+    inputs:  
+      ACTIONDO:
+        required: true
+        default: 'CLEANUP'
+        description: 'ACTIONDO'  
+  workflow_run:
+    workflows: ['*']
+    types: [completed]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0    
+      - uses: cogsmith/devking-cleanup@main

@@ -1,0 +1,15 @@
+name: DEVKING_CHECK
+on:
+  workflow_dispatch:  
+  push:
+    branches: [ main ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - run: npm -v
+    - run: npm ci
+      continue-on-error: true
+    - run: find . -maxdepth 1 -name '*.js' -exec echo node --check {} \;
+    - run: find . -maxdepth 1 -name '*.js' -exec node --check {} \;

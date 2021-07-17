@@ -1,0 +1,8 @@
+name: DEVKING_TRACKER
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: cogsmith/devking-tracker@main
