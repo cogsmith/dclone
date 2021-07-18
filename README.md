@@ -1,5 +1,6 @@
 # DCLONE
-### Terminal Menu Guided Disk Imaging Using Open Source Tools
+## Terminal Menu Guided Disk Imaging
+### Simple frontend for common open-source tools: lsblk dd squashfs kpartx
 
 ---
 
@@ -33,6 +34,11 @@
 * dd
 * squashfs
 * kpartx
+
+---
+
+Single step streaming technique originally sourced from this StackOverflow post:
+https://unix.stackexchange.com/a/75590/23232
 
 ---
 
