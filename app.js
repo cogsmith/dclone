@@ -1,5 +1,9 @@
+const nodeos = require('os');
+
+const JSONFANCY = function (x) { return require('util').inspect(x, { colors: true, depth: null, breakLength: 99 }); };
+
 AppExit = function (exit) {
-    if (screen) { screen.destroy(); }
+    try { screen.destroy(); } catch (ex) { }
     console.log({ EXIT: exit });
     process.exit(1);
 }
@@ -250,6 +254,8 @@ App.TUI.Node.Table = MyTable;
 
 App.Disks = {};
 
+App.Disks.BackupPath = '/backup';
+
 App.Disks.GetInfo = function () {
     let exec = execa.commandSync('lsblk -pJ --output-all', { shell: true });
     let info = JSON.parse(exec.stdout);
@@ -269,13 +275,35 @@ App.Disks.GetTableData = function () {
         }
     }
 
+    let sizetotal = 0;
+
+    App.Disks.DiskDB = {};
+    App.Disks.Usages = {};
     let rows = [];
     for (let diskid in disks) {
         let disk = disks[diskid];
+        App.Disks.DiskDB[diskid] = disk;
         //let row = [disk.name, disk.vendor, disk.model, disk.fstype, disk.label, disk.size, disk.fsused, disk.fsavail, disk.mountpoint];
         let row = [disk.name, disk.vendor, disk.model, disk.size];
         rows.push(row);
+
+        disk.size = disk.size.toString() || '';
+        let sizeint = 0; let sizenum = disk.size.replace('M', '').replace('G', '').replace('T', '');
+        if (false) { }
+        else if (disk.size.includes('M')) { sizeint = sizenum * 1; }
+        else if (disk.size.includes('G')) { sizeint = sizenum * 10; }
+        else if (disk.size.includes('T')) { sizeint = sizenum * 100; }
+        sizetotal += sizeint;
+
+        let partused = 0; try { partused = part['fsuse%'].replace('%', ''); } catch (ex) { }
+
+        for (let part of disk.children) {
+            let usage = { ID: part.name, Label: part.label, Used: partused };
+            if (!App.Disks.Usages[diskid]) { App.Disks.Usages[diskid] = {}; } App.Disks.Usages[diskid][part.name] = usage;
+        }
+
     }
+    App.Disks.SizeTotal = sizetotal;
 
     for (let rowi = 0; rowi < rows.length; rowi++) {
         let r = rows[rowi];
@@ -284,6 +312,8 @@ App.Disks.GetTableData = function () {
 
     return rows;
 }
+
+App.Disks.DB = { Rows: App.Disks.GetTableData(), Info: App.Disks.GetInfo(), DiskDB: App.Disks.DiskDB, Usages: App.Disks.Usages };
 
 //
 
@@ -296,19 +326,25 @@ App.TUI.Append = function (el, to) {
         if (el.position.bottom >= 0) { delete el.position.top; }
 
         to.ViewHeight = to.ViewHeight + el.height;
-        //if (el.flex) { el.height = to.ViewHeight - to.ViewHeightFixed; } else { to.ViewHeightFixed += el.height; }
-        if (el.flex) { } else { to.ViewHeightFixed += el.height; }
+        if (el.flex) { el.height = to.ViewHeight - to.ViewHeightFixed; } else { to.ViewHeightFixed += el.height; }
+        //if (el.flex) { } else { to.ViewHeightFixed += el.height; }
 
         if (!to.ViewHeights) { to.ViewHeights = []; }
         to.ViewHeights.push(el.height);
 
         to.append(el);
+
+        screen.render();
     }
     else { LOG.WARN('TUI.Append: !EL'); }
 }
 
 App.TUI.Init = function () {
-    let bp = blessed.program(); //bp.cols = 99; bp.rows = 20;
+    let bp = blessed.program();
+    //bp.cols = 144; bp.rows = 36;
+    //bp.cols = 99; bp.rows = 24;
+    //bp.cols = 80; bp.rows = 20;
+
     screen = blessed.screen({ debug: true, autoPadding: false, dockBorders: true, program: bp, cursor: { blink: true, color: 'red' } });
     App.TUI.BP = bp; App.TUI.Screen = screen;
 
@@ -328,15 +364,20 @@ App.TUI.Init = function () {
     App.TUI.DiskView.append(App.TUI.UsageBox);
 
     App.TUI.Append(App.TUI.DiskView, App.TUI.ViewsBox);
-    App.TUI.Append(App.TUI.FilesystemView, App.TUI.ViewsBox);
+    //App.TUI.Append(App.TUI.FilesystemView, App.TUI.ViewsBox);
     App.TUI.Append(App.TUI.OutputView, App.TUI.ViewsBox);
-    App.TUI.Append(App.TUI.AppView, App.TUI.ViewsBox);
+    //App.TUI.Append(App.TUI.AppView, App.TUI.ViewsBox);
+
+    //App.TUI.AppView.append(App.TUI.NodeStatsBox);
+    //App.TUI.AppView.append(App.TUI.AppInfoBox);
 
     for (let z of App.TUI.ViewsBox.children) {
         if (z.flex) {
             z.height = App.TUI.ViewsBox.height - App.TUI.ViewsBox.ViewHeightFixed;
+            //z.height = screen.height - 2 - App.TUI.ViewsBox.ViewHeightFixed;
             for (let zz of z.children) {
                 if (zz.flex) { zz.height = App.TUI.ViewsBox.height - App.TUI.ViewsBox.ViewHeightFixed; }
+                //if (zz.flex) { zz.height = screen.height - 2 - App.TUI.ViewsBox.ViewHeightFixed; }
             }
         }
     }
@@ -344,7 +385,7 @@ App.TUI.Init = function () {
     for (let i = 1; i < App.TUI.ViewsBox.children.length; i++) {
         let zlast = App.TUI.ViewsBox.children[i - 1];
         let znow = App.TUI.ViewsBox.children[i];
-        if (zlast.flex) { znow.top = 5 + App.TUI.ViewsBox.height - App.TUI.ViewsBox.ViewHeightFixed; screen.render(); }
+        if (zlast.flex) { znow.top = 10 + App.TUI.ViewsBox.height - App.TUI.ViewsBox.ViewHeightFixed; screen.render(); }
     }
 
     App.TUI.Screen.append(App.TUI.Header);
@@ -355,6 +396,26 @@ App.TUI.Init = function () {
 }
 
 //
+
+App.TUI.FX.NodeStatsBox = function () {
+    let box = blessed.box({
+        top: 0, height: 8, width: '20%', right: 0,
+        style: { fg: 'white', bg: 'black' },
+        content: 'NODESTATBOX'
+    });
+
+    return box;
+}
+
+App.TUI.FX.AppInfoBox = function () {
+    let box = blessed.box({
+        top: 0, height: 8, width: '80%',
+        style: { fg: 'white', bg: 'black' },
+        content: 'APPINFOBOX'
+    });
+
+    return box;
+}
 
 App.TUI.FX.InputZone = function () {
     let box = blessed.box({ height: 1, width: '50%', top: 0, left: 0 });
@@ -381,7 +442,7 @@ App.TUI.FX.InfoBox = function () {
     let box = blessed.box({
         top: 0, right: 1, height: 1, width: '50%', align: 'right',
         style: { fg: 'white', bg: 'blue' },
-        content: 'pi @ raspberrypi /snapshot ◀'
+        content: nodeos.userInfo().username + ' @ ' + nodeos.hostname() + ' ' + App.Disks.BackupPath + ' ◀'
     });
 
     return box;
@@ -430,6 +491,10 @@ App.TUI.FX.ClockBox = function () {
 App.TUI.FX.ListBox = function () {
     var box = blessed.box({ height: 7, padding: { top: 0, left: 1, right: 1, bottom: 0 } });
 
+    var label = '[ ' + App.Disks.DB.Rows.length + ' disks = ' + Math.floor(App.Disks.SizeTotal / 10) + ' GB' + ' ]';
+
+    //App.TUI.LogAndExit(JSON.stringify(App.Disks.DB));
+
     var boxlist = MyTable({
         top: 0,
         keys: true,
@@ -437,7 +502,7 @@ App.TUI.FX.ListBox = function () {
         interactive: true,
         fg: 'white',
         selectedFg: 'white', selectedBg: 'blue',
-        label: '[ 5 Disks = 7.10 TB ]',
+        label: label,
         width: 55, border: { type: "line", fg: "blue" }, columnSpacing: 3, columnWidth: [12, 12, 16, 8]
     });
 
@@ -451,19 +516,24 @@ App.TUI.FX.ListBox = function () {
         headers: ['ID', 'VENDOR', 'MODEL', 'SIZE'],
         data: rows
     })
+    //App.Disks.DB.Rows = rows;
 
     screen.on('keypress', function (key, code) {
         if (code.name == 'up' || code.name == 'down') {
-            App.TUI.UsageBox.setLabel(code.name);
             screen.render();
+            setTimeout(() => {
+                let rowdata = false; try { rowdata = App.Disks.DB.Rows[App.TUI.ListBox.children[0].rows.selected]; } catch (ex) { };
+                App.TUI.UsageBox.setLabel('[ ' + rowdata[0] + ' = ' + rowdata[3] + ' ]');
+                screen.render();
+            }, 10);
+            //console.log(rowdata);
         }
     });
 
-
     boxlist.rows.on('select', (el, index) => {
-        let inputpromptmsg = ' ▶ Enter Image Filename:';
+        let inputpromptmsg = ' ▶ Enter Image Filename: ' + App.Disks.BackupPath + '/';
         let inputprompt = new blessed.box({ width: inputpromptmsg.length + 1, style: { bg: 'white', fg: 'black' }, content: inputpromptmsg });
-        App.TUI.InputBox.left = inputpromptmsg.length + 1;
+        App.TUI.InputBox.left = inputpromptmsg.length + 0;
 
         App.TUI.InputBox.setContent('LABEL_ZG_FSLIST_' + rows[index][0]); screen.render();
         App.TUI.InputBox.setValue('LABEL_ZG_FSLIST_' + rows[index][0]); screen.render();
@@ -495,11 +565,17 @@ App.TUI.FX.ListBox = function () {
 
 App.TUI.LogAndExit = function (msg) {
     screen.destroy();
+    msg = JSONFANCY(msg);
     console.log(msg);
     process.exit(1);
 }
 
 App.TUI.FX.UsageBox = function () {
+    let rowdata = false; try { rowdata = App.Disks.DB.Rows[App.TUI.ListBox.children[0].rows.selected]; } catch (ex) { };
+    let diskid = rowdata[0];
+
+    //App.TUI.LogAndExit(App.Disks.DB.Usages);
+
     var box = blessed.box({
         interactive: true,
         right: 0, top: 0,
@@ -508,7 +584,7 @@ App.TUI.FX.UsageBox = function () {
         fg: 'white',
         //bg: '#ff0000',
         selectedFg: 'white', selectedBg: 'blue',
-        label: '[ /dev/sda ]',
+        label: '[ DISKID = ? GB ]',
         width: screen.width - 55 + 1,
         height: 7,
         padding: 0,
@@ -520,7 +596,11 @@ App.TUI.FX.UsageBox = function () {
         style: { fg: 'white' }, //border: { type: "line", fg: "cyan" },
         //label: '[ Partitions ]',
         showLabel: true,
-        stack: [{ percent: 5, stroke: [99, 99, 99] }, { percent: 30, stroke: 'cyan' }, { percent: 65, stroke: 'blue' }],
+        stack: [
+            { percent: 5, stroke: [99, 99, 99] },
+            { percent: 30, stroke: 'cyan' },
+            { percent: 65, stroke: 'blue' }
+        ],
     });
     box.append(gauge);
 
@@ -528,8 +608,11 @@ App.TUI.FX.UsageBox = function () {
         height: 1, top: 5, width: box.width - 1, padding: 0,
         style: { fg: 'white' }, //border: { type: "line", fg: "cyan" },
         showLabel: false,
-        stack: [{ percent: 3, stroke: 'yellow' }, { label: 'ROOT', percent: 2, stroke: 'green' }, { label: 'DATA', percent: 20, stroke: 'yellow' },
-        { percent: 10, stroke: 'green' }, { label: 'ROOT', percent: 5, stroke: 'yellow' }, { label: 'DATA', percent: 60, stroke: 'green' }],
+        stack: [
+            { percent: 3, stroke: 'yellow' }, { percent: 2, stroke: 'green' },
+            { percent: 20, stroke: 'yellow' }, { percent: 10, stroke: 'green' },
+            { percent: 5, stroke: 'yellow' }, { percent: 60, stroke: 'green' }
+        ],
     });
     box.append(g1);
 
@@ -537,18 +620,13 @@ App.TUI.FX.UsageBox = function () {
         height: 1, top: 1, width: box.width - 1, padding: 0,
         style: { fg: 'white' }, //border: { type: "line", fg: "cyan" },
         showLabel: true,
-        stack: [{ label: "BOOT", percent: 5, stroke: 'black' }, { label: 'ROOT', percent: 30, stroke: 'black' }, { label: 'DATA', percent: 65, stroke: 'black' }],
+        stack: [
+            { label: "BOOT", percent: 5, stroke: 'black' },
+            { label: 'ROOT', percent: 30, stroke: 'black' },
+            { label: 'DATA', percent: 65, stroke: 'black' }
+        ],
     });
     box.append(g2);
-
-    let g3 = MyGauge({
-        height: 1, top: 7, width: box.width - 1, padding: 0,
-        style: { fg: 'white' }, //border: { type: "line", fg: "cyan" },
-        //label: '[ Partitions ]',
-        showLabel: true,
-        stack: [{ label: "150m", percent: 5, stroke: 'black' }, { label: '16g', percent: 30, stroke: 'black' }, { label: '250g', percent: 65, stroke: 'black' }],
-    });
-    //box.append(g3);
 
     return box;
 }
@@ -611,8 +689,8 @@ App.TUI.FX.DiskView = function () {
 }
 
 App.TUI.FX.FilesystemView = function () {
-    let box = blessed.box({ height: 6, style: { fg: 'white', bg: 'red' } });
-    box.flex = true;
+    let box = blessed.box({ height: 10, style: { fg: 'white', bg: 'red' } });
+    //box.flex = true;
 
     const opts = {
         padding: { top: 0, left: 1, right: 1, bottom: 0 },
@@ -635,7 +713,7 @@ App.TUI.FX.FilesystemView = function () {
     let bxterm = new BXTERM(Object.assign({}, opts, {
         //args: ['-c', '(lsblk -Tp --output NAME,MAJ:MIN,UUID,SERIAL,STATE,TRAN,PTTYPE,TYPE,FSTYPE,LABEL,MOUNTPOINT,SIZE,FSUSED,FSUSE%,FSAVAIL,RO,RM,HOTPLUG | cut -c -' + (screen.width - 4) + ')'],
         args: ['-c', '(lsblk -Tp --output NAME,MAJ:MIN,STATE,TRAN,PTTYPE,TYPE,FSTYPE,LABEL,MOUNTPOINT,SIZE,FSUSED,FSUSE%,FSAVAIL,RO,RM,HOTPLUG | cut -c -' + (screen.width - 4) + ')'],
-        width: screen.width, height: 4,
+        width: screen.width, height: box.height,
         label: "[ Filesystems ]",
         border: { type: "line", fg: "blue" },
     }));
@@ -647,12 +725,53 @@ App.TUI.FX.FilesystemView = function () {
 }
 
 App.TUI.FX.OutputView = function () {
-    let box = blessed.box({ label: 'Shell Output', height: 8, border: { type: "line", fg: "blue" }, style: { fg: 'white', bg: 'magenta' } });
+    let box = blessed.box({ label: 'Shell Output', height: 10, border: { type: "line", fg: "blue" }, style: { fg: 'white', bg: 'magenta' } });
+    box.flex = true;
+
+    let lsblk = 'lsblk -Tp --output NAME,MAJ:MIN,STATE,TRAN,PTTYPE,TYPE,FSTYPE,LABEL,MOUNTPOINT,SIZE,FSUSED,FSUSE%,FSAVAIL,RO,RM,HOTPLUG | cut -c -' + (screen.width - 4) + '';
+    const opts = {
+        padding: { top: 0, left: 1 },
+        shell: '/bin/sh',
+        //args: ['-c', '/usr/bin/curl -o /dev/null https://speed.hetzner.de/100MB.bin'],
+        //args: ['-c', '(sudo fdisk --list)'],        
+        //args: ['-c', '(uname -a;echo;' + lsblk + ';echo;sudo bash /zx/dclone/test_cmd_backup.sh)'],
+        args: ['-c', '(uname -a;echo;' + lsblk + ';echo;echo sudo bash /zx/dclone/test_cmd_backup.sh)'],
+        env: process.env,
+        cwd: process.cwd(),
+        cursorType: "block",
+        border: "line",
+        scrollback: 1000,
+        mouse: true,
+        style: {
+            fg: "default", bg: "default",
+            //border: { type: "line", fg: "blue" },
+            focus: { border: { fg: "green" } },
+            scrolling: { border: { fg: "red" } }
+        }
+    }
+
+    let bxterm = new BXTERM(Object.assign({}, opts, {
+        //args: ['-c', '(lsblk -Tp --output NAME,MAJ:MIN,UUID,SERIAL,STATE,TRAN,PTTYPE,TYPE,FSTYPE,LABEL,MOUNTPOINT,SIZE,FSUSED,FSUSE%,FSAVAIL,RO,RM,HOTPLUG | cut -c -' + (screen.width - 4) + ')'],
+        //args: ['-c', '(lsblk -Tp --output NAME,MAJ:MIN,STATE,TRAN,PTTYPE,TYPE,FSTYPE,LABEL,MOUNTPOINT,SIZE,FSUSED,FSUSE%,FSAVAIL,RO,RM,HOTPLUG | cut -c -' + (screen.width - 4) + ')'],
+        width: screen.width, height: 10,
+        label: "[ Shell Output ]",
+        border: { type: "line", fg: "blue" },
+        controlKey: 'C-w'
+    }));
+    bxterm.flex = true;
+
+    box.append(bxterm);
+    screen.render();
+
+    //bxterm.focus();
+
     return box;
 }
 
 App.TUI.FX.AppView = function () {
-    let box = blessed.box({ label: 'App Info', height: 8, bottom: 0, left: 0, border: { type: "line", fg: "blue" }, style: { fg: 'white', bg: 'green' } });
+    //let box = blessed.box({ label: 'App Info', height: 8, bottom: 0, left: 0, border: { type: "line", fg: "blue" }, style: { fg: 'white', bg: 'green' } });
+    //return box;
+    let box = blessed.box({ height: 0, bottom: 0, left: 0, style: { fg: 'white', bg: 'red' } });
     return box;
 }
 
@@ -676,11 +795,8 @@ App.InitDone = function () {
 }
 
 App.Main = function () {
-
     let rows = App.Disks.GetTableData();
-
     App.TUI.Init();
-
     setInterval(() => { }, 100);
 }
 
