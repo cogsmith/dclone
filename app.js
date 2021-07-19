@@ -129,7 +129,7 @@ MyGauge.prototype.setStack = function (stack) {
 
         if (currentStack.stroke != 'black') { c.fillRect(leftStart, 0, width, this.height); }
 
-        textLeft = (width / 2) - 1;
+        textLeft = (width / 2) - 0;
         var textX = leftStart + textLeft;
 
         if ((leftStart + width) < textX) { c.strokeStyle = 'normal'; }
@@ -295,11 +295,21 @@ App.Disks.GetTableData = function () {
         else if (disk.size.includes('T')) { sizeint = sizenum * 100; }
         sizetotal += sizeint;
 
-        let partused = 0; try { partused = part['fsuse%'].replace('%', ''); } catch (ex) { }
-
         for (let part of disk.children) {
-            let usage = { ID: part.name, Label: part.label, Used: partused };
-            if (!App.Disks.Usages[diskid]) { App.Disks.Usages[diskid] = {}; } App.Disks.Usages[diskid][part.name] = usage;
+            partsizetext = part.size;
+            part.size = part.size.toString() || '';
+            let partsizeint = 0; let partsizenum = part.size.replace('M', '').replace('G', '').replace('T', '');
+            if (false) { }
+            else if (part.size.includes('M')) { partsizeint = partsizenum * 1; }
+            else if (part.size.includes('G')) { partsizeint = partsizenum * 10; }
+            else if (part.size.includes('T')) { partsizeint = partsizenum * 100; }
+
+            console.log(part.name + ' = ' + part['fsuse%']);
+            let partused = 0; try { partused = part['fsuse%'].replace('%', ''); } catch (ex) { }
+            let usage = { ID: part.name, Label: part.label, Size: partsizeint, DiskSize: sizeint, SizeText: part.size, Used: partused };
+            //if (!App.Disks.Usages[diskid]) { App.Disks.Usages[diskid] = {}; } App.Disks.Usages[diskid][part.name] = usage;
+            if (!App.Disks.Usages[diskid]) { App.Disks.Usages[diskid] = []; } App.Disks.Usages[diskid].push(usage);
+            //console.log(disk);
         }
 
     }
@@ -354,9 +364,9 @@ App.TUI.Init = function () {
     App.TUI.NullBox = blessed.box({ height: 0, width: 0, hidden: false, style: { fg: 'white', bg: 'red' } });
 
     for (let k in App.TUI.FX) {
-        LOG.DEBUG('TUI.FX: ' + k);
+        //LOG.TRACE('TUI.FX: ' + k);
         let el = App.TUI.FX[k].apply(null, []);
-        if (!el) { el = App.TUI.NullBox; LOG.WARN('TUI.FX: ' + k + ' = NullBox'); }
+        if (!el) { el = App.TUI.NullBox; LOG.WARN('TUI.FX: ' + k + ' = NULLBOX'); }
         App.TUI[k] = el;
     }
 
@@ -520,10 +530,13 @@ App.TUI.FX.ListBox = function () {
 
     screen.on('keypress', function (key, code) {
         if (code.name == 'up' || code.name == 'down') {
-            screen.render();
             setTimeout(() => {
+                App.TUI.UsageBox.destroy();
+                App.TUI.UsageBox = App.TUI.FX.UsageBox();
+                App.TUI.DiskView.append(App.TUI.UsageBox);
+                screen.render();
                 let rowdata = false; try { rowdata = App.Disks.DB.Rows[App.TUI.ListBox.children[0].rows.selected]; } catch (ex) { };
-                App.TUI.UsageBox.setLabel('[ ' + rowdata[0] + ' = ' + rowdata[3] + ' ]');
+                //App.TUI.UsageBox.setLabel('[ ' + rowdata[0] + ' = ' + rowdata[3] + ' ]');
                 screen.render();
             }, 10);
             //console.log(rowdata);
@@ -531,12 +544,14 @@ App.TUI.FX.ListBox = function () {
     });
 
     boxlist.rows.on('select', (el, index) => {
-        let inputpromptmsg = ' ▶ Enter Image Filename: ' + App.Disks.BackupPath + '/';
+        let inputpromptmsg = ' ▶ Enter Backup Filename: ' + App.Disks.BackupPath + '/';
         let inputprompt = new blessed.box({ width: inputpromptmsg.length + 1, style: { bg: 'white', fg: 'black' }, content: inputpromptmsg });
         App.TUI.InputBox.left = inputpromptmsg.length + 0;
 
-        App.TUI.InputBox.setContent('LABEL_ZG_FSLIST_' + rows[index][0]); screen.render();
-        App.TUI.InputBox.setValue('LABEL_ZG_FSLIST_' + rows[index][0]); screen.render();
+        //let backuplabel = rows[index][0];
+        let backuplabel = 'DISK' + '_' + 'BOOT+ROOT+DATA' + '_' + '123GB.202107042359';
+        App.TUI.InputBox.setContent(backuplabel); screen.render();
+        App.TUI.InputBox.setValue(backuplabel); screen.render();
 
         App.TUI.Header.remove(App.TUI.InputZone);
         App.TUI.InputZone.destroy();
@@ -573,9 +588,29 @@ App.TUI.LogAndExit = function (msg) {
 App.TUI.FX.UsageBox = function () {
     let rowdata = false; try { rowdata = App.Disks.DB.Rows[App.TUI.ListBox.children[0].rows.selected]; } catch (ex) { };
     let diskid = rowdata[0];
+    let disksize = rowdata[3];
 
-    //App.TUI.LogAndExit(App.Disks.DB.Usages);
+    App.TUI.LogAndExit(App.Disks.DB.Usages[diskid]);
 
+    let g0stack = [];
+    let g1stack = [];
+    let g2stack = [];
+
+    let sizes = [];
+    let usedtotal = 0;
+    let zi = 0;
+    let gstrokes = [[99, 99, 99], 'cyan', 'blue', 'cyan', 'blue', 'cyan', 'blue', 'cyan', 'blue'];
+    for (let z of App.Disks.DB.Usages[diskid]) {
+        zi++;
+        sizes.push(z.Size);
+        usedtotal += z.Used * 1;
+        g0stack.push({ percent: z.Used * 1, stroke: gstrokes[zi] });
+        g2stack.push({ label: z.Label, percent: z.Used * 1, stroke: 'black' });
+    }
+
+    //console.log(usedtotal);
+
+    let boxlabel = '[ ' + diskid + ' = ' + disksize + ' GB'; if (usedtotal > 0) { boxlabel += ' = ' + usedtotal + '% Used'; } else { boxlabel += ' = Not Mounted'; } boxlabel += ' ];'
     var box = blessed.box({
         interactive: true,
         right: 0, top: 0,
@@ -584,7 +619,7 @@ App.TUI.FX.UsageBox = function () {
         fg: 'white',
         //bg: '#ff0000',
         selectedFg: 'white', selectedBg: 'blue',
-        label: '[ DISKID = ? GB ]',
+        label: boxlabel,
         width: screen.width - 55 + 1,
         height: 7,
         padding: 0,
@@ -596,11 +631,7 @@ App.TUI.FX.UsageBox = function () {
         style: { fg: 'white' }, //border: { type: "line", fg: "cyan" },
         //label: '[ Partitions ]',
         showLabel: true,
-        stack: [
-            { percent: 5, stroke: [99, 99, 99] },
-            { percent: 30, stroke: 'cyan' },
-            { percent: 65, stroke: 'blue' }
-        ],
+        stack: g0stack
     });
     box.append(gauge);
 
@@ -620,28 +651,20 @@ App.TUI.FX.UsageBox = function () {
         height: 1, top: 1, width: box.width - 1, padding: 0,
         style: { fg: 'white' }, //border: { type: "line", fg: "cyan" },
         showLabel: true,
-        stack: [
-            { label: "BOOT", percent: 5, stroke: 'black' },
-            { label: 'ROOT', percent: 30, stroke: 'black' },
-            { label: 'DATA', percent: 65, stroke: 'black' }
-        ],
+        stack: g2stack
     });
     box.append(g2);
 
     return box;
 }
 
-App.TUI.FX.FilesystemBox = function () {
-}
+//App.TUI.FX.FilesystemBox = function () {}
 
-App.TUI.FX.OutputBox = function () {
-}
+//App.TUI.FX.OutputBox = function () {}
 
-App.TUI.FX.LogBox = function () {
-}
+//App.TUI.FX.LogBox = function () {}
 
-App.TUI.FX.StatBox = function () {
-}
+//App.TUI.FX.StatBox = function () {}
 
 //
 
