@@ -42,3 +42,8 @@ https://unix.stackexchange.com/a/75590/23232
 ---
 
 ![SCREENSHOT](SCREENCAP.GIF)
+
+---
+
+<p>Disk cloning app that uses open-source tools like dd mksquashfs and kpartx to backup and restore images easily.</p>
+<p>It gives a guided menu interface to picking out a disk and entering a filename, then lets you observe the streaming output from spawned tasks in an embedded tty buffer.</p>
