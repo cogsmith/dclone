@@ -1,7 +1,7 @@
 {
   "npmpublish": true,
   "license": "GPLv3",
-  "version": "0.0.2-dev",
+  "version": "0.0.2",
   "nametag": "DCLONE",
   "namelong": "DCLONE",
   "description": "Disk Cloner",
@@ -13,5 +13,5 @@
     "blessed-xterm": "^1.4.1",
     "execa": "^5.1.1"
   },
-  "versiontaglast": "0.0.1"
+  "versiontaglast": "0.0.2"
 }
