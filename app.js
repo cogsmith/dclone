@@ -1,3 +1,5 @@
+// npm install blessed blessed-contrib blessed-xterm execa ansi-term @cogsmith/xt
+
 const nodeos = require('os');
 
 const JSONFANCY = function (x) { return require('util').inspect(x, { colors: true, depth: null, breakLength: 99 }); };
@@ -129,7 +131,7 @@ MyGauge.prototype.setStack = function (stack) {
 
         if (currentStack.stroke != 'black') { c.fillRect(leftStart, 0, width, this.height); }
 
-        textLeft = (width / 2) - 0;
+        textLeft = (width / 2) - ((currentStack.label ? currentStack.label.length : 0) / 2) + 2;
         var textX = leftStart + textLeft;
 
         if ((leftStart + width) < textX) { c.strokeStyle = 'normal'; }
@@ -290,9 +292,9 @@ App.Disks.GetTableData = function () {
         disk.size = disk.size.toString() || '';
         let sizeint = 0; let sizenum = disk.size.replace('M', '').replace('G', '').replace('T', '');
         if (false) { }
-        else if (disk.size.includes('M')) { sizeint = sizenum * 1; }
-        else if (disk.size.includes('G')) { sizeint = sizenum * 10; }
-        else if (disk.size.includes('T')) { sizeint = sizenum * 100; }
+        else if (disk.size.includes('M')) { sizeint = sizenum / 1024; }
+        else if (disk.size.includes('G')) { sizeint = sizenum * 1; }
+        else if (disk.size.includes('T')) { sizeint = sizenum * 1024; }
         sizetotal += sizeint;
 
         for (let part of disk.children) {
@@ -300,13 +302,13 @@ App.Disks.GetTableData = function () {
             part.size = part.size.toString() || '';
             let partsizeint = 0; let partsizenum = part.size.replace('M', '').replace('G', '').replace('T', '');
             if (false) { }
-            else if (part.size.includes('M')) { partsizeint = partsizenum * 1; }
-            else if (part.size.includes('G')) { partsizeint = partsizenum * 10; }
-            else if (part.size.includes('T')) { partsizeint = partsizenum * 100; }
+            else if (part.size.includes('M')) { partsizeint = partsizenum / 1024; }
+            else if (part.size.includes('G')) { partsizeint = partsizenum * 1; }
+            else if (part.size.includes('T')) { partsizeint = partsizenum * 1024; }
 
             console.log(part.name + ' = ' + part['fsuse%']);
             let partused = 0; try { partused = part['fsuse%'].replace('%', ''); } catch (ex) { }
-            let usage = { ID: part.name, Label: part.label, Size: partsizeint, DiskSize: sizeint, SizeText: part.size, Used: partused };
+            let usage = { ID: part.name, Label: part.label, Size: partsizeint, DiskSize: sizeint, SizeText: part.size, Used: partused * 1 };
             //if (!App.Disks.Usages[diskid]) { App.Disks.Usages[diskid] = {}; } App.Disks.Usages[diskid][part.name] = usage;
             if (!App.Disks.Usages[diskid]) { App.Disks.Usages[diskid] = []; } App.Disks.Usages[diskid].push(usage);
             //console.log(disk);
@@ -428,7 +430,7 @@ App.TUI.FX.AppInfoBox = function () {
 }
 
 App.TUI.FX.InputZone = function () {
-    let box = blessed.box({ height: 1, width: '50%', top: 0, left: 0 });
+    let box = blessed.box({ height: 1, width: '75%', top: 0, left: 0 });
     return box;
 }
 
@@ -439,10 +441,11 @@ App.TUI.FX.InputBox = function () {
         tags: true,
         //content: '{green-fg}✔️ ▶ ✅  {/green-fg} ▶ ⭐ ⛔ ✅ HEADER_LEFT  ⏸️ ⚡'
         // content: '▶ DCLONE ◀'
-        content: '▶ DCLONE: Disk Cloner [0.0.1-dev]'
+        //content: '▶ DCLONE: Disk Cloner [0.0.1-dev]'
+        content: ' ▶ ' + App.Meta.Full + ''
     });
 
-    box.on('mouseout', () => { box.setContent(' ▶ DCLONE: Disk Cloner [0.0.1-dev]'); screen.render(); });
+    box.on('mouseout', () => { box.setContent(' ▶ ' + App.Meta.Full + ''); screen.render(); });
     box.on('mouseover', () => { box.setContent(' ▶ COGSMITH IT Solutions Provider'); screen.render(); });
 
     return box;
@@ -450,7 +453,7 @@ App.TUI.FX.InputBox = function () {
 
 App.TUI.FX.InfoBox = function () {
     let box = blessed.box({
-        top: 0, right: 1, height: 1, width: '50%', align: 'right',
+        top: 0, right: 1, height: 1, width: '25%', align: 'right',
         style: { fg: 'white', bg: 'blue' },
         content: nodeos.userInfo().username + ' @ ' + nodeos.hostname() + ' ' + App.Disks.BackupPath + ' ◀'
     });
@@ -548,8 +551,22 @@ App.TUI.FX.ListBox = function () {
         let inputprompt = new blessed.box({ width: inputpromptmsg.length + 1, style: { bg: 'white', fg: 'black' }, content: inputpromptmsg });
         App.TUI.InputBox.left = inputpromptmsg.length + 0;
 
+        if (0) {
+            const JSONFANCY = function (x) { return require('util').inspect(x, { colors: true, depth: null, breakLength: 99 }); };
+            screen.destroy();
+            console.log("\n\n\n\n========\n\n\n\n");
+            console.log(JSONFANCY(App.Disks.DB));
+            //LOG.WARN('Disks.DB', App.Disks.DB);
+            process.exit(1);
+        }
+
+        let diskid = App.Disks.DB.Rows[index][0];
+        let partlabels = []; for (let zp of App.Disks.DB.Usages[diskid]) { partlabels.push(zp.Label); }
+
         //let backuplabel = rows[index][0];
-        let backuplabel = 'DISK' + '_' + 'BOOT+ROOT+DATA' + '_' + '123GB.202107042359';
+        let dnow = new Date().toISOString().replace(/(T|-|:|\.)/g, '').substring(0, 12);
+        let disksizetext = Math.ceil(App.Disks.DB.Usages[diskid][0].DiskSize) + 'GB';
+        let backuplabel = 'DISK' + '_' + partlabels.join('+') + '_' + disksizetext + '.' + dnow;
         App.TUI.InputBox.setContent(backuplabel); screen.render();
         App.TUI.InputBox.setValue(backuplabel); screen.render();
 
@@ -563,19 +580,39 @@ App.TUI.FX.ListBox = function () {
         screen.render();
 
         App.TUI.InputBox.readInput(function (z) {
+            App.DoBackup(diskid, App.Disks.BackupPath, App.TUI.InputBox.value);
+
             App.TUI.Header.remove(App.TUI.InputZone);
             App.TUI.InputZone.destroy();
             App.TUI.InputBox.left = 0;
             App.TUI.InputZone = App.TUI.FX.InputZone();
             App.TUI.InputZone.append(App.TUI.InputBox);
             App.TUI.Header.append(App.TUI.InputZone);
-            App.TUI.InputBox.setContent(' ▶ DCLONE: Disk Cloner [0.0.1-dev]'); screen.render();
+            App.TUI.InputBox.setContent(' ▶ ' + App.Meta.Full + ''); screen.render();
         });
     });
 
     App.TUI.BoxList = boxlist;
 
     return box;
+}
+
+App.DoBackup = function (diskid, outdir, backupfile) {
+    App.BXTERM.write("\n\r\n");
+    App.BXTERM.write('▶ DCLONE Backup: ' + diskid + ' => ' + outdir + '/' + backupfile);
+    App.BXTERM.write("\n\r\n");
+    //App.BXTERM.spawn('/bin/sh', ['-c', '/usr/bin/curl -o /dev/null https://speed.hetzner.de/100MB.bin']);
+    App.BXTERM.spawn('/bin/bash', ['-c', 'echo 123 ; echo 999']);
+
+    let sqfsdir = outdir + '';
+    let cmds = [];
+    cmds.push('mkdir -p ' + sqfsdir);
+    cmds.push('cd ' + sqfsdir);
+    cmds.push('time mksquashfs /dev/null ./' + backupfile + '.sqfs -p "' + backupfile + '.img f 444 root root dd if=' + diskid + ' bs=8M"');
+    let cmd = '(' + cmds.join(' ; ') + ')';
+    App.BXTERM.write(cmd);
+    App.BXTERM.write("\n\r\n");
+    App.BXTERM.spawn('/bin/bash', ['-c', cmd]);
 }
 
 App.TUI.LogAndExit = function (msg) {
@@ -590,7 +627,8 @@ App.TUI.FX.UsageBox = function () {
     let diskid = rowdata[0];
     let disksize = rowdata[3];
 
-    App.TUI.LogAndExit(App.Disks.DB.Usages[diskid]);
+    //App.TUI.LogAndExit(App.Disks.DB.Usages);
+    //App.TUI.LogAndExit(App.Disks.DB.Usages[diskid]);
 
     let g0stack = [];
     let g1stack = [];
@@ -599,18 +637,42 @@ App.TUI.FX.UsageBox = function () {
     let sizes = [];
     let usedtotal = 0;
     let zi = 0;
-    let gstrokes = [[99, 99, 99], 'cyan', 'blue', 'cyan', 'blue', 'cyan', 'blue', 'cyan', 'blue'];
+    let gstrokes = ['cyan', 'blue', 'cyan', 'blue', 'cyan', 'blue', 'cyan', 'blue', 'cyan', 'blue'];
+    let vpz = 100;
     for (let z of App.Disks.DB.Usages[diskid]) {
-        zi++;
-        sizes.push(z.Size);
-        usedtotal += z.Used * 1;
-        g0stack.push({ percent: z.Used * 1, stroke: gstrokes[zi] });
-        g2stack.push({ label: z.Label, percent: z.Used * 1, stroke: 'black' });
+        let p = z.Size / z.DiskSize * 100;
+        if (p < 10) { vpz = vpz - 10; } // else { vpz = vpz - p; }
     }
+    for (let z of App.Disks.DB.Usages[diskid]) {
+        sizes.push(z.Size);
+        usedtotal += Math.floor((z.Used / 100) * (z.Size / z.DiskSize) * 100);
+        let p = (z.Size / z.DiskSize) * 100;
+        let vp = p; if (p > vpz) { vp = vpz; vpz = vpz - vp; } if (p < 10) { vp = 10; }
+        let g1p1 = (z.Used / 100) * vp;
+        let g1p2 = ((100 - z.Used) / 100) * vp;
+        if (g1p1 == 1) { g1p1 = 1.01; }
+        if (g1p2 == 1) { g1p2 = 1.01; }
+        if (g1p1 < 0.01) { g1p1 = 0.01; }
+        if ((g1p1 + g1p2) > vp) { g1p2 = (vp - g1p1) * 1; }
+        //g1p2 = p - g1p1 - 0.5;
+        g0stack.push({ label: Math.floor(p) + '%', percent: vp, stroke: gstrokes[zi] });
+        g2stack.push({ label: z.Label, percent: vp, stroke: 'black' });
+        g1stack.push({ u: z.Used, p: p, vp: vp, percent: g1p1, stroke: 'yellow' });
+        g1stack.push({ u: z.Used, p: p, vp: vp, percent: g1p2, stroke: 'green' });
+        zi++;
+    }
+
+    if (diskid == '0/dev/mmcblk0') {
+        //console.log(g0stack);
+        console.log(g1stack);
+        //console.log(g2stack);
+    }
+
+    //App.TUI.LogAndExit({ G0: g0stack, G2: g2stack, G1: g1stack });
 
     //console.log(usedtotal);
 
-    let boxlabel = '[ ' + diskid + ' = ' + disksize + ' GB'; if (usedtotal > 0) { boxlabel += ' = ' + usedtotal + '% Used'; } else { boxlabel += ' = Not Mounted'; } boxlabel += ' ];'
+    let boxlabel = '[ ' + diskid + ' = ' + disksize + ' GB'; if (usedtotal > 0) { boxlabel += ' = ' + usedtotal + '% Used'; } else { boxlabel += ' = Not Mounted'; } boxlabel += ' ]';
     var box = blessed.box({
         interactive: true,
         right: 0, top: 0,
@@ -635,15 +697,19 @@ App.TUI.FX.UsageBox = function () {
     });
     box.append(gauge);
 
+
     let g1 = MyGauge({
         height: 1, top: 5, width: box.width - 1, padding: 0,
         style: { fg: 'white' }, //border: { type: "line", fg: "cyan" },
         showLabel: false,
+        /*
         stack: [
             { percent: 3, stroke: 'yellow' }, { percent: 2, stroke: 'green' },
             { percent: 20, stroke: 'yellow' }, { percent: 10, stroke: 'green' },
             { percent: 5, stroke: 'yellow' }, { percent: 60, stroke: 'green' }
         ],
+        */
+        stack: g1stack
     });
     box.append(g1);
 
@@ -654,6 +720,11 @@ App.TUI.FX.UsageBox = function () {
         stack: g2stack
     });
     box.append(g2);
+
+    setTimeout(() => {
+        screen.append(blessed.box({ height: 1, top: 6, right: 1, width: 1, style: { fg: 'white', bg: 'black' } }));
+        screen.render();
+    }, 10);
 
     return box;
 }
@@ -679,7 +750,7 @@ App.TUI.FX.Header = function () {
     App.TUI.InputZone.append(App.TUI.InputBox);
     header.append(App.TUI.InputZone);
 
-    setTimeout(() => { App.TUI.InputBox.setContent(' ▶ DCLONE: Disk Cloner [0.0.1-dev]'); screen.render(); }, 99);
+    setTimeout(() => { App.TUI.InputBox.setContent(' ▶ ' + App.Meta.Full + ''); screen.render(); }, 99);
 
     return header;
 }
@@ -758,7 +829,7 @@ App.TUI.FX.OutputView = function () {
         //args: ['-c', '/usr/bin/curl -o /dev/null https://speed.hetzner.de/100MB.bin'],
         //args: ['-c', '(sudo fdisk --list)'],        
         //args: ['-c', '(uname -a;echo;' + lsblk + ';echo;sudo bash /zx/dclone/test_cmd_backup.sh)'],
-        args: ['-c', '(uname -a;echo;' + lsblk + ';echo;echo sudo bash /zx/dclone/test_cmd_backup.sh)'],
+        args: ['-c', '(uname -a;echo;' + lsblk + ')'],
         env: process.env,
         cwd: process.cwd(),
         cursorType: "block",
@@ -786,7 +857,17 @@ App.TUI.FX.OutputView = function () {
     box.append(bxterm);
     screen.render();
 
+    console.log(App.Disks.DB.Usages);
+
+    App.BXTERM = bxterm;
+
+    //bxterm.write("\n" + JSONFANCY(App.Disks.DB.Usages) + "\n");
+    //bxterm.write(App.Disks.DB.Usages);
+    //bxterm.write(JSON.stringify(App.Disks.DB.Usages));
     //bxterm.focus();
+
+    //bxterm.write(JSONFANCY(App.Disks.DB.Usages).replace(/\n/g, "\n\r"));
+    //bxterm.write("\n\r\n");
 
     return box;
 }
@@ -805,7 +886,7 @@ App.InitArgs = function () {
 }
 
 App.InitInfo = function () {
-    App.SetInfo('App', function () { return 'DCLONE' });
+    //App.SetInfo('App', function () { return 'DCLONE' });
 }
 
 App.InitData = function () {
