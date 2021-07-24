@@ -42,4 +42,4 @@ https://unix.stackexchange.com/a/75590/23232
 
 ---
 
-![SCREENSHOT](SCREENSHOT.PNG)
+![SCREENSHOT](SCREENCAP.GIF)
