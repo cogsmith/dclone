@@ -1,6 +1,5 @@
-# DCLONE
-## Terminal Menu Guided Disk Imaging
-### Simple frontend for common open-source tools: lsblk dd squashfs kpartx
+# DCLONE: Terminal Menu Guided Disk Imaging
+## Simple frontend for common open-source tools: lsblk dd squashfs kpartx
 
 ---
 
