@@ -1,17 +1,17 @@
 {
-    "npmpublish": true,
-    "license": "GPLv3",
-    "version": "0.0.1-dev",
-    "nametag": "DCLONE",
-    "namelong": "DCLONE",
-    "description": "Disk Cloner",
-    "dependencies": {
-        "@cogsmith/xt": "^1.0.167",
-        "ansi-term": "0.0.2",
-        "blessed": "^0.1.81",
-        "blessed-contrib": "^4.10.0",
-        "blessed-xterm": "^1.4.1",
-        "execa": "^5.1.1"
-    },
-    "versiontaglast": "0.0.0"
+  "npmpublish": true,
+  "license": "GPLv3",
+  "version": "0.0.1",
+  "nametag": "DCLONE",
+  "namelong": "DCLONE",
+  "description": "Disk Cloner",
+  "dependencies": {
+    "@cogsmith/xt": "^1.0.167",
+    "ansi-term": "0.0.2",
+    "blessed": "^0.1.81",
+    "blessed-contrib": "^4.10.0",
+    "blessed-xterm": "^1.4.1",
+    "execa": "^5.1.1"
+  },
+  "versiontaglast": "0.0.1"
 }
